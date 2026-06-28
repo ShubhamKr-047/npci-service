@@ -1,0 +1,33 @@
+package com.upi.npci.dto.request;
+
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import lombok.Data;
+
+import java.util.UUID;
+
+@Data
+public class PaymentInitiateRequest {
+
+    @NotNull(message = "transaction_id is required")
+    private UUID transactionId;
+
+    @NotBlank(message = "payer_vpa is required")
+    @Pattern(regexp = "^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$", message = "Invalid payer VPA format")
+    private String payerVpa;
+
+    @NotBlank(message = "payee_vpa is required")
+    @Pattern(regexp = "^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$", message = "Invalid payee VPA format")
+    private String payeeVpa;
+
+    @NotNull(message = "amount_paise is required")
+    @Positive(message = "amount_paise must be positive")
+    @Max(value = 10000000L, message = "amount_paise cannot exceed ₹1,00,000 (10,000,000 paise)")
+    private Long amountPaise;
+
+    @NotBlank(message = "upi_pin_hash is required")
+    private String upiPinHash;
+}
