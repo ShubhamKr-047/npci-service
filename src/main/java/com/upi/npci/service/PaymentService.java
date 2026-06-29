@@ -70,7 +70,8 @@ public class PaymentService {
         // Step 4: Step A - Call Payer Bank Debit
         BankResponse debitResponse = executeDebitCall(payerRegistry.getBankApiUrl(), request);
         if (!"SUCCESS".equalsIgnoreCase(debitResponse.getStatus())) {
-            log.warn("Debit failed for transaction ID: {}. Reason: {}", request.getTransactionId(), debitResponse.getFailureReason());
+            log.warn("Debit failed for transaction ID: {}. Reason: {}", request.getTransactionId(),
+                    debitResponse.getFailureReason());
             transaction.setStatus(TransactionStatus.FAILED);
             transaction.setFailureReason(debitResponse.getFailureReason());
             transactionRepository.save(transaction);
@@ -82,7 +83,8 @@ public class PaymentService {
         }
 
         // Debit was successful
-        log.info("Debit successful for transaction ID: {}. Payer RRN: {}", request.getTransactionId(), debitResponse.getRrn());
+        log.info("Debit successful for transaction ID: {}. Payer RRN: {}", request.getTransactionId(),
+                debitResponse.getRrn());
         transaction.setStatus(TransactionStatus.DEBIT_SUCCESS);
         transaction.setPayerRrn(debitResponse.getRrn());
         transaction = transactionRepository.save(transaction);
@@ -90,7 +92,8 @@ public class PaymentService {
         // Step 5: Step B - Call Payee Bank Credit
         BankResponse creditResponse = executeCreditCall(payeeRegistry.getBankApiUrl(), request);
         if ("SUCCESS".equalsIgnoreCase(creditResponse.getStatus())) {
-            log.info("Credit successful for transaction ID: {}. Payee RRN: {}", request.getTransactionId(), creditResponse.getRrn());
+            log.info("Credit successful for transaction ID: {}. Payee RRN: {}", request.getTransactionId(),
+                    creditResponse.getRrn());
             transaction.setStatus(TransactionStatus.SUCCESS);
             transaction.setPayeeRrn(creditResponse.getRrn());
             transactionRepository.save(transaction);
@@ -105,7 +108,7 @@ public class PaymentService {
         // Credit failed or timed out. Trigger Auto-Reversal
         log.warn("Credit failed/timed out for transaction ID: {}. Triggering auto-reversal. Reason: {}",
                 request.getTransactionId(), creditResponse.getFailureReason());
-        
+
         transaction.setStatus(TransactionStatus.CREDIT_PENDING);
         transaction.setFailureReason(creditResponse.getFailureReason());
         transaction = transactionRepository.save(transaction);
@@ -131,7 +134,7 @@ public class PaymentService {
                 .upiPinHash(request.getUpiPinHash())
                 .hmacSignature(hmacSignature)
                 .build();
-
+        log.info("Debit Request : {}", debitRequest);
         log.info("Sending debit request to bank: {}/bank/debit", bankApiUrl);
         return callBankEndpoint(bankApiUrl + "/bank/debit", debitRequest);
     }
@@ -148,7 +151,8 @@ public class PaymentService {
                 .build();
 
         log.info("Sending credit request to bank: {}/bank/credit", bankApiUrl);
-        // Timeout is set to 3 seconds. Simulated timeouts in bank service sleep for 6 seconds.
+        // Timeout is set to 3 seconds. Simulated timeouts in bank service sleep for 6
+        // seconds.
         return callBankEndpointWithTimeout(bankApiUrl + "/bank/credit", creditRequest, Duration.ofSeconds(3));
     }
 
@@ -176,7 +180,8 @@ public class PaymentService {
                 transaction.setStatus(TransactionStatus.REVERSED);
                 transactionRepository.save(transaction);
             } else {
-                log.error("Reversal failed or returned non-success for original transaction ID: {}", transaction.getTransactionId());
+                log.error("Reversal failed or returned non-success for original transaction ID: {}",
+                        transaction.getTransactionId());
             }
         } catch (Exception e) {
             log.error("Failed to execute reversal call for transaction ID: {}", transaction.getTransactionId(), e);
@@ -197,7 +202,8 @@ public class PaymentService {
                     .timeout(timeout)
                     .block();
         } catch (WebClientResponseException ex) {
-            log.warn("Bank HTTP endpoint returned error code: {}. Body: {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            log.warn("Bank HTTP endpoint returned error code: {}. Body: {}", ex.getStatusCode(),
+                    ex.getResponseBodyAsString());
             try {
                 BankResponse response = ex.getResponseBodyAs(BankResponse.class);
                 if (response != null) {
@@ -213,7 +219,8 @@ public class PaymentService {
         } catch (Exception ex) {
             log.error("Exception calling bank endpoint: {}", url, ex);
             String reason = "GATEWAY_TIMEOUT";
-            if (ex instanceof java.util.concurrent.TimeoutException || ex.getCause() instanceof java.util.concurrent.TimeoutException) {
+            if (ex instanceof java.util.concurrent.TimeoutException
+                    || ex.getCause() instanceof java.util.concurrent.TimeoutException) {
                 reason = "TIMEOUT";
             }
             return BankResponse.builder()
@@ -221,5 +228,11 @@ public class PaymentService {
                     .failureReason(reason)
                     .build();
         }
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Optional<Transaction> getTransactionStatus(UUID transactionId) {
+        log.info("Fetching transaction status for ID: {}", transactionId);
+        return transactionRepository.findById(transactionId);
     }
 }
